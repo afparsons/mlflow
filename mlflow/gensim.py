@@ -5,6 +5,12 @@ Gensim (native) format
     This is the main flavor that can be loaded back into Gensim.
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
+
+Usage:
+
+with mlflow.start_run(run_name='3') as run:
+    mlflow.gensim.log_model(model, 'model.gensim', registered_model_name='registered_model_name')
+
 """
 
 from __future__ import absolute_import
@@ -110,7 +116,7 @@ def save_model(
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
 
-    # Save a Gensim model
+    # Save the Gensim model
     gensim_model.save(model_data_path)
 
     conda_env_subpath = "conda.yaml"
@@ -190,6 +196,9 @@ def log_model(
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
+    :param await_registration_for: Number of seconds to wait for the model version to finish
+                            being created and is in ``READY`` status. By default, the function
+                            waits for five minutes. Specify 0 or None to skip waiting.
     """
     Model.log(
         artifact_path=artifact_path,
@@ -199,6 +208,8 @@ def log_model(
         conda_env=conda_env,
         signature=signature,
         input_example=input_example,
+        await_registration_for=await_registration_for,
+        **kwargs
     )
 
 
@@ -212,12 +223,28 @@ def _load_model_from_local_file(path: str) -> Any:
         return pickle.load(f)
 
 
-def _load_pyfunc(path: str) -> Any:
+# def _load_pyfunc(path: str) -> Any:
+#     """
+#     Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
+#     :param path: Local filesystem path to the MLflow Model with the ``sklearn`` flavor.
+#     """
+#     return _load_model_from_local_file(path)
+
+
+class _GensimModelWrapper:
+    def __init__(self, gensim_model):
+        self.gensim_model = gensim_model
+
+    def predict(self, dataframe) -> NotImplemented:
+        return NotImplemented
+
+
+def _load_pyfunc(path: str) -> NotImplemented:
     """
     Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
-    :param path: Local filesystem path to the MLflow Model with the ``sklearn`` flavor.
+    :param path: Local filesystem path to the MLflow Model with the ``h2o`` flavor.
     """
-    return _load_model_from_local_file(path)
+    return _GensimModelWrapper(_load_model_from_local_file(path=path))
 
 
 def _save_model(gensim_model, output_path: str) -> None:
